@@ -1,13 +1,27 @@
 HELP.md
+
+# IA helpers
 /.opencode
 /ponytail
+/ponytail.mjs
+/ponytail-debt.md
+/ponytail-frontmatter.cjs
+/ponytail-gain.md
+/ponytail-help.md
+/ponytail-audit.md
+/ponytail-review.md
+/ponytail.md
+/opencode.json
+
+# Maven
 target/
 .mvn/wrapper/maven-wrapper.jar
+
+# Excepciones para módulos
 !**/src/main/**/target/
 !**/src/test/**/target/
-/tp-integrador_files
 
-### STS ###
+# Spring Tool Suite (STS)
 .apt_generated
 .classpath
 .factorypath
@@ -16,35 +30,30 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea
+# IntelliJ IDEA
+.idea/
 *.iws
 *.iml
 *.ipr
 
-### NetBeans ###
+# NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 build/
+
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
+# VS Code
 .vscode/
 
 # Compilación
-target/
 *.class
 
-# IntelliJ / VS Code
-.idea/
-*.iml
-.vscode/
-
-# Base H2 en archivo (¡nunca al repositorio!)
+# Base H2
 data/
 *.mv.db
 *.trace.db
@@ -56,18 +65,5 @@ Thumbs.db
 # Logs
 *.log
 
-#IA helpers
-/ponytail/
-/.opencode/
-/ponytail.mjs 
-/ponytail-debt.md 
-/ponytail-frontmatter.cjs 
-/ponytail-gain.md 
-/ponytail-help.md
-/ponytail-audit.md
-/ponytail-review.md
-/ponytail.md
-/opencode.json
-
-#files
+# Archivos locales
 /tp-integrador_files/
