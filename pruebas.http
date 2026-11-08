@@ -1,0 +1,32 @@
+### Archivo de pruebas · reemplazá las rutas por las de tu enunciado
+### En IntelliJ: abrí este archivo y tocá el ▶ verde de cada petición.
+
+@base = http://localhost:8080/api
+
+### Listar
+GET {{base}}/recursos
+
+### Crear
+POST {{base}}/recursos
+Content-Type: application/json
+
+{
+  "campo1": "valor",
+  "campo2": "valor",
+  "campo3": "valor"
+}
+
+### Buscar por id
+GET {{base}}/recursos/1
+
+### Error de validación (400)
+POST {{base}}/recursos
+Content-Type: application/json
+
+{ "campo1": "" }
+
+### Cambiar estado
+PATCH {{base}}/otro-recurso/1/estado
+Content-Type: application/json
+
+{ "estado": "OTRO_ESTADO" }

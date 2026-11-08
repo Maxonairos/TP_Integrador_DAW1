@@ -1,0 +1,51 @@
+# Corrección automática del TP · DAW1 · No modificar este archivo.
+name: Corrección automática
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  corregir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Instalar Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Compilar el proyecto
+        run: |
+          if [ ! -f pom.xml ]; then
+            echo "### ❌ No hay pom.xml en la raíz del repositorio" >> "$GITHUB_STEP_SUMMARY"
+            echo "El proyecto de Spring Boot tiene que estar en la raíz (al lado de este README)." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if [ -f mvnw ]; then chmod +x mvnw; ./mvnw -B -q package -DskipTests; else mvn -B -q package -DskipTests; fi
+
+      - name: Levantar la aplicación
+        run: |
+          JAR="$(ls target/*.jar | grep -v -- '-plain' | head -1)"
+          nohup java -jar "$JAR" --server.port=8080 > app.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -s -o /dev/null http://localhost:8080/; then echo "La aplicación arrancó en ${i}s"; exit 0; fi
+            sleep 1
+          done
+          echo "### ❌ La aplicación no arrancó en 90 segundos" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"; tail -40 app.log >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      - name: Correr las pruebas del TP
+        run: bash .tp/correr.sh
+
+      - name: Log de la aplicación (si algo falló)
+        if: failure()
+        run: tail -100 app.log || true

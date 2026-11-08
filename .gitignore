@@ -1,0 +1,73 @@
+HELP.md
+/.opencode
+/ponytail
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+/tp-integrador_files
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+# Compilación
+target/
+*.class
+
+# IntelliJ / VS Code
+.idea/
+*.iml
+.vscode/
+
+# Base H2 en archivo (¡nunca al repositorio!)
+data/
+*.mv.db
+*.trace.db
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+#IA helpers
+/ponytail/
+/.opencode/
+/ponytail.mjs 
+/ponytail-debt.md 
+/ponytail-frontmatter.cjs 
+/ponytail-gain.md 
+/ponytail-help.md
+/ponytail-audit.md
+/ponytail-review.md
+/ponytail.md
+/opencode.json
+
+#files
+/tp-integrador_files/
