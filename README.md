@@ -1,6 +1,6 @@
 # TP Integrador · DAW1 — Complejo Deportivo
 
-**Alumno/a:** — · **Legajo:** —
+**Alumno: Fabricio Soriano** — · **Legajo: 510114** —
 **Enunciado elegido:** canchas
 
 ## Descripción

@@ -2,18 +2,25 @@ package ar.edu.undec.tp_integrador_daw1.exception;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(RecursoNoEncontradoException.class)
     public ProblemDetail noEncontrado(RecursoNoEncontradoException ex) {
@@ -74,8 +81,42 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    /** Ruta inexistente (por ejemplo "/" o "/cualquier-cosa"): 404, no un 500. */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail rutaInexistente(NoResourceFoundException ex) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(
+                        HttpStatus.NOT_FOUND,
+                        "No existe un recurso en la ruta '/"
+                                + ex.getResourcePath()
+                                + "'. La API está disponible en /api");
+        problem.setTitle("Ruta no encontrada");
+        return problem;
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ProblemDetail metodoNoSoportado(HttpRequestMethodNotSupportedException ex) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(
+                        HttpStatus.METHOD_NOT_ALLOWED,
+                        "El método " + ex.getMethod() + " no está permitido en esta ruta");
+        problem.setTitle("Método no permitido");
+        return problem;
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ProblemDetail tipoNoSoportado(HttpMediaTypeNotSupportedException ex) {
+        ProblemDetail problem =
+                ProblemDetail.forStatusAndDetail(
+                        HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                        "El Content-Type de la petición no está soportado. Usá application/json");
+        problem.setTitle("Tipo de contenido no soportado");
+        return problem;
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail errorInesperado(Exception ex) {
+        log.error("Error no controlado", ex);
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(
                         HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado");
