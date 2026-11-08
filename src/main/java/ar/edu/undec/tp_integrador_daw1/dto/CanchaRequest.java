@@ -6,8 +6,16 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 
 public record CanchaRequest(
-        @NotBlank(message = "no debe estar vacío") String nombre,
-        @NotBlank(message = "no debe estar vacío") String deporte,
-        @NotNull(message = "es obligatorio")
-        @Positive(message = "debe ser mayor que cero") BigDecimal precioHora) {
+
+        @NotBlank(message = "Ingrese el nombre de la cancha.")
+        String nombre,
+
+        @NotBlank(message = "Indique el deporte que se practica en la cancha.")
+        String deporte,
+
+        @NotNull(message = "Ingrese el precio por hora de la cancha.")
+        @Positive(message = "El precio por hora debe ser mayor a cero.")
+        BigDecimal precioHora
+
+) {
 }
