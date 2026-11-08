@@ -1,32 +1,167 @@
-### Archivo de pruebas · reemplazá las rutas por las de tu enunciado
+### Archivo de pruebas · Enunciado 4 · Complejo deportivo (canchas)
 ### En IntelliJ: abrí este archivo y tocá el ▶ verde de cada petición.
 
 @base = http://localhost:8080/api
+@canchaId = 1
+@clienteId = 1
+@reservaId = 1
 
-### Listar
-GET {{base}}/recursos
+### Canchas · listar
+GET {{base}}/canchas
 
-### Crear
-POST {{base}}/recursos
+### Canchas · crear
+POST {{base}}/canchas
 Content-Type: application/json
 
 {
-  "campo1": "valor",
-  "campo2": "valor",
-  "campo3": "valor"
+  "nombre": "Cancha 1",
+  "deporte": "Fútbol 5",
+  "precioHora": 30000
 }
 
-### Buscar por id
-GET {{base}}/recursos/1
+### Canchas · buscar por id
+GET {{base}}/canchas/{{canchaId}}
 
-### Error de validación (400)
-POST {{base}}/recursos
+### Canchas · modificar
+PUT {{base}}/canchas/{{canchaId}}
 Content-Type: application/json
 
-{ "campo1": "" }
+{
+  "nombre": "Cancha 1 techada",
+  "deporte": "Fútbol 5",
+  "precioHora": 35000
+}
 
-### Cambiar estado
-PATCH {{base}}/otro-recurso/1/estado
+### Canchas · borrar
+DELETE {{base}}/canchas/{{canchaId}}
+
+### Canchas · error de validación (400)
+POST {{base}}/canchas
 Content-Type: application/json
 
-{ "estado": "OTRO_ESTADO" }
+{ "nombre": "", "deporte": "", "precioHora": -1 }
+
+### Canchas · id no numérico (400)
+GET {{base}}/canchas/abc
+
+### Clientes · crear
+POST {{base}}/clientes
+Content-Type: application/json
+
+{
+  "nombre": "Ana Díaz",
+  "telefono": "3825123456"
+}
+
+### Clientes · listar
+GET {{base}}/clientes
+
+### Reservas · crear (el estado y el precioTotal los pone el sistema)
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "canchaId": {{canchaId}},
+  "clienteId": {{clienteId}},
+  "inicio": "2026-11-20T10:00:00",
+  "horas": 2
+}
+
+### Reservas · listar
+GET {{base}}/reservas
+
+### Reservas · buscar por id
+GET {{base}}/reservas/{{reservaId}}
+
+### Reservas · superposición en la misma cancha (409)
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "canchaId": {{canchaId}},
+  "clienteId": {{clienteId}},
+  "inicio": "2026-11-20T11:00:00",
+  "horas": 1
+}
+
+### Reservas · más de 3 horas (400 con error en horas)
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "canchaId": {{canchaId}},
+  "clienteId": {{clienteId}},
+  "inicio": "2026-11-20T20:00:00",
+  "horas": 5
+}
+
+### Reservas · cambiar estado
+PATCH {{base}}/reservas/{{reservaId}}/estado
+Content-Type: application/json
+
+{ "estado": "CONFIRMADA" }
+
+### Reservas · cancelar (libera el horario)
+PATCH {{base}}/reservas/{{reservaId}}/estado
+Content-Type: application/json
+
+{ "estado": "CANCELADA" }
+
+### Reservas · transición no permitida (409)
+PATCH {{base}}/reservas/{{reservaId}}/estado
+Content-Type: application/json
+
+{ "estado": "FINALIZADA" }
+
+### Reservas · PATCH sin estado (400)
+PATCH {{base}}/reservas/{{reservaId}}/estado
+Content-Type: application/json
+
+{}
+
+### Consultas · reservas de una cancha por fecha
+GET {{base}}/canchas/{{canchaId}}/reservas?fecha=2026-11-20
+
+### Consultas · reservas de un cliente
+GET {{base}}/clientes/{{clienteId}}/reservas
+
+### Extra · horarios libres de una cancha
+GET {{base}}/canchas/{{canchaId}}/disponibilidad?fecha=2026-11-20
+
+### Extra · turno fijo (N semanas seguidas)
+POST {{base}}/reservas/fijas
+Content-Type: application/json
+
+{
+  "canchaId": {{canchaId}},
+  "clienteId": {{clienteId}},
+  "inicio": "2026-11-25T18:00:00",
+  "horas": 2,
+  "semanas": 4
+}
+
+### Extra · recaudación mensual por cancha
+GET {{base}}/canchas/recaudacion?mes=2026-11
+
+### Extra · tarifa nocturna (2 h desde las 20:00)
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "canchaId": {{canchaId}},
+  "clienteId": {{clienteId}},
+  "inicio": "2026-11-20T20:00:00",
+  "horas": 2
+}
+
+### Extra · cancelación tardía (recargo del 50 %; usar una reserva que empiece en menos de 24 h)
+PATCH {{base}}/reservas/{{reservaId}}/estado
+Content-Type: application/json
+
+{ "estado": "CANCELADA" }
+
+### JSON mal formado (400)
+POST {{base}}/canchas
+Content-Type: application/json
+
+{ "nombre": "roto"
