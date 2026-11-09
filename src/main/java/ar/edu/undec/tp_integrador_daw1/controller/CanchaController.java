@@ -5,6 +5,7 @@ import ar.edu.undec.tp_integrador_daw1.dto.CanchaResponse;
 import ar.edu.undec.tp_integrador_daw1.dto.RecaudacionResponse;
 import ar.edu.undec.tp_integrador_daw1.dto.ReservaResponse;
 import ar.edu.undec.tp_integrador_daw1.service.CanchaService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.time.LocalDate;
@@ -26,6 +27,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/canchas")
+@Tag(name = "Canchas", description = "ABM de canchas, disponibilidad horaria y recaudación")
 public class CanchaController {
 
     private final CanchaService canchaService;

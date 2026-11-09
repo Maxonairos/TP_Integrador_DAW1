@@ -20,6 +20,18 @@ Requisitos: Java 21 (Maven viene incluido con `mvnw`).
 La API queda en `http://localhost:8080/api`. La base H2 se guarda en `data/` (no se sube al
 repositorio). Consola H2: `http://localhost:8080/h2-console`.
 
+## Documentación (Swagger / OpenAPI)
+
+La API se documenta automáticamente con springdoc-openapi:
+
+| Recurso | URL |
+|---|---|
+| Swagger UI | `http://localhost:8080/swagger-ui.html` |
+| Contrato OpenAPI (JSON) | `http://localhost:8080/v3/api-docs` |
+
+Desde Swagger UI se pueden probar todos los endpoints sin escribir las peticiones a mano.
+
+
 ## Modelo
 
 | Entidad | Atributos principales | Relaciones |

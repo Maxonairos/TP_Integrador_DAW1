@@ -4,6 +4,7 @@ import ar.edu.undec.tp_integrador_daw1.dto.ClienteRequest;
 import ar.edu.undec.tp_integrador_daw1.dto.ClienteResponse;
 import ar.edu.undec.tp_integrador_daw1.dto.ReservaResponse;
 import ar.edu.undec.tp_integrador_daw1.service.ClienteService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -22,6 +23,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/clientes")
+@Tag(name = "Clientes", description = "ABM de clientes y sus reservas")
 public class ClienteController {
 
     private final ClienteService clienteService;

@@ -5,6 +5,7 @@ import ar.edu.undec.tp_integrador_daw1.dto.ReservaFijaRequest;
 import ar.edu.undec.tp_integrador_daw1.dto.ReservaRequest;
 import ar.edu.undec.tp_integrador_daw1.dto.ReservaResponse;
 import ar.edu.undec.tp_integrador_daw1.service.ReservaService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -24,6 +25,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/reservas")
+@Tag(name = "Reservas", description = "Reservas, turnos fijos y cambios de estado")
 public class ReservaController {
 
     private final ReservaService reservaService;
