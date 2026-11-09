@@ -1,0 +1,2477 @@
+{
+  "info": {
+    "_postman_id": "c0a8014e-9f1e-4a51-9d7a-3b5f1a2c6d10",
+    "name": "TP Integrador DAW1 - Complejo Deportivo",
+    "description": "Circuito completo de la API de canchas (Spring Boot, `http://localhost:8080/api`).\n\n**Cómo usarla**\n1. Levantá la API: `./mvnw spring-boot:run` (Java 21).\n2. Importá este archivo en Postman.\n3. Ajustá la variable de colección `baseUrl` si usás otro puerto.\n4. Ejecutá la colección completa con el Collection Runner (orden de carpetas 01 → 07).\n\n**Qué hace**\n- Cada corrida crea su propia cancha y cliente con nombre único, así se puede repetir sin chocar con datos anteriores.\n- Encadena `canchaId`, `clienteId`, `reservaId`, `fijaId1..4`, etc. entre requests.\n- Las fechas se calculan en un pre-request global (hoy + 7 días a las 10:00, hoy + 14 días a las 18:00, ahora + 3 h), por lo que no dependen del día en que se ejecute.\n- La carpeta 06 borra todo lo creado por la corrida.\n\n**Cobertura**: la colección combina caminos exitosos y no exitosos. Exitosos: CRUD de canchas y clientes, ciclo PENDIENTE → CONFIRMADA → FINALIZADA, cancelación anticipada y tardía, disponibilidad, reservas por cancha/cliente, recaudación mensual, turno fijo y tarifa nocturna. No exitosos: validaciones (400), recursos inexistentes (404), ids con formato inválido (400), JSON mal formado (400), Content-Type no soportado (415), método no permitido (405), ruta inexistente (404), superposiciones (409), transiciones de estado inválidas (409) y borrados protegidos (409).\n\nLa prueba \"Ruta inexistente (404)\" requiere la versión del `GlobalExceptionHandler` que devuelve 404 en rutas sin endpoint.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Canchas",
+      "item": [
+        {
+          "name": "Crear cancha (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/canchas",
+            "description": "Crea una cancha nueva en cada corrida (nombre único) y guarda su id.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"{{nombreCancha}}\",\n  \"deporte\": \"Fútbol 5\",\n  \"precioHora\": 30000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const serie = Date.now().toString().slice(-6);",
+                  "pm.collectionVariables.set('serie', serie);",
+                  "pm.collectionVariables.set('nombreCancha', 'Cancha ' + serie);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('devuelve id numérico', () => pm.expect(json.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('canchaId', json.id);",
+                  "pm.test('guarda el nombre enviado', () => pm.expect(json.nombre).to.eql(pm.collectionVariables.get('nombreCancha')));",
+                  "pm.test('guarda el deporte', () => pm.expect(json.deporte).to.eql('Fútbol 5'));",
+                  "pm.test('precioHora 30000', () => pm.expect(Number(json.precioHora)).to.eql(30000));",
+                  "pm.test('header Location apunta al recurso', () => {",
+                  "  pm.expect(pm.response.headers.get('Location')).to.include('/api/canchas/' + json.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener cancha por id (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('es la cancha creada', () => pm.expect(json.id).to.eql(Number(pm.collectionVariables.get('canchaId'))));",
+                  "pm.test('nombre coincide', () => pm.expect(json.nombre).to.eql(pm.collectionVariables.get('nombreCancha')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar cancha (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}",
+            "description": "Deja precioHora=35000 para el resto del circuito.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"{{nombreCancha}} techada\",\n  \"deporte\": \"Fútbol 5\",\n  \"precioHora\": 35000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('actualiza nombre', () => pm.expect(json.nombre).to.eql(pm.collectionVariables.get('nombreCancha') + ' techada'));",
+                  "pm.test('actualiza precioHora', () => pm.expect(Number(json.precioHora)).to.eql(35000));",
+                  "pm.collectionVariables.set('precioHora', 35000);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar canchas (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "pm.test('devuelve un arreglo', () => pm.expect(lista).to.be.an('array'));",
+                  "pm.test('incluye la cancha creada', () => {",
+                  "  const id = Number(pm.collectionVariables.get('canchaId'));",
+                  "  pm.expect(lista.some(c => c.id === id)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear cancha con datos inválidos (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/canchas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\",\n  \"deporte\": \"\",\n  \"precioHora\": -1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "const json = pm.response.json();",
+                  "pm.test('title \"Datos inválidos\"', () => pm.expect(json.title).to.eql('Datos inválidos'));",
+                  "pm.test('informa los tres campos', () => {",
+                  "  pm.expect(json.errores).to.have.property('nombre');",
+                  "  pm.expect(json.errores).to.have.property('deporte');",
+                  "  pm.expect(json.errores).to.have.property('precioHora');",
+                  "});",
+                  "pm.test('mensaje de nombre', () => pm.expect(json.errores.nombre).to.include('nombre de la cancha'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancha inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('detalle con el id', () => pm.expect(pm.response.json().detail).to.include('999999'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Id no numérico (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/abc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Parámetro inválido', () => pm.response.to.have.status(400));",
+                  "pm.test('responde problem+json con title \"Parámetro inválido\"', () => {",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql(400);",
+                  "  pm.expect(json.title).to.eql('Parámetro inválido');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "JSON mal formado (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/canchas",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"nombre\": \"roto\"",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 JSON mal formado', () => pm.response.to.have.status(400));",
+                  "pm.test('responde problem+json con title \"JSON mal formado\"', () => {",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql(400);",
+                  "  pm.expect(json.title).to.eql('JSON mal formado');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Método no permitido (405)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('405 Método no permitido', () => pm.response.to.have.status(405));",
+                  "pm.test('responde problem+json con title \"Método no permitido\"', () => {",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql(405);",
+                  "  pm.expect(json.title).to.eql('Método no permitido');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ruta inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/",
+            "description": "Valida que una ruta sin endpoint devuelve 404 y no 500."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Ruta no encontrada', () => pm.response.to.have.status(404));",
+                  "pm.test('responde problem+json con title \"Ruta no encontrada\"', () => {",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql(404);",
+                  "  pm.expect(json.title).to.eql('Ruta no encontrada');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Clientes",
+      "item": [
+        {
+          "name": "Crear cliente (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cliente {{serie}}\",\n  \"telefono\": \"3825123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('devuelve id numérico', () => pm.expect(json.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('clienteId', json.id);",
+                  "pm.test('guarda el teléfono', () => pm.expect(json.telefono).to.eql('3825123456'));",
+                  "pm.test('header Location apunta al recurso', () => {",
+                  "  pm.expect(pm.response.headers.get('Location')).to.include('/api/clientes/' + json.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener cliente por id (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('es el cliente creado', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('clienteId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar cliente (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cliente {{serie}} actualizado\",\n  \"telefono\": \"+54 3825-123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('actualiza nombre', () => pm.expect(json.nombre).to.eql('Cliente ' + pm.collectionVariables.get('serie') + ' actualizado'));",
+                  "pm.test('acepta teléfono con +, espacios y guiones', () => pm.expect(json.telefono).to.eql('+54 3825-123456'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar clientes (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "pm.test('incluye el cliente creado', () => {",
+                  "  const id = Number(pm.collectionVariables.get('clienteId'));",
+                  "  pm.expect(lista.some(c => c.id === id)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Teléfono inválido (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cliente sin teléfono válido\",\n  \"telefono\": \"abc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "const json = pm.response.json();",
+                  "pm.test('title \"Datos inválidos\"', () => pm.expect(json.title).to.eql('Datos inválidos'));",
+                  "pm.test('informa el campo telefono', () => pm.expect(json.errores).to.have.property('telefono'));",
+                  "pm.test('mensaje de teléfono', () => pm.expect(json.errores.telefono).to.include('teléfono'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cliente inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('detalle con el id', () => pm.expect(pm.response.json().detail).to.include('999999'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Reservas: ciclo completo",
+      "item": [
+        {
+          "name": "Crear reserva (201, PENDIENTE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "description": "Fecha calculada en el pre-request de la colección: hoy + 7 días a las 10:00.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaReservaISO}}\",\n  \"horas\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('devuelve id numérico', () => pm.expect(json.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('reservaId', json.id);",
+                  "pm.test('estado inicial PENDIENTE', () => pm.expect(json.estado).to.eql('PENDIENTE'));",
+                  "pm.test('recargo inicial 0', () => pm.expect(Number(json.recargo)).to.eql(0));",
+                  "pm.test('precio = 2 horas x precioHora', () => {",
+                  "  pm.expect(Number(json.precioTotal)).to.eql(Number(pm.collectionVariables.get('precioHora')) * 2);",
+                  "});",
+                  "pm.test('asocia cancha y cliente', () => {",
+                  "  pm.expect(json.canchaId).to.eql(Number(pm.collectionVariables.get('canchaId')));",
+                  "  pm.expect(json.clienteId).to.eql(Number(pm.collectionVariables.get('clienteId')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener reserva por id (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/{{reservaId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('estado PENDIENTE', () => pm.expect(json.estado).to.eql('PENDIENTE'));",
+                  "pm.test('horas 2', () => pm.expect(json.horas).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar reservas (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "pm.test('devuelve un arreglo', () => pm.expect(lista).to.be.an('array'));",
+                  "pm.test('incluye la reserva creada', () => {",
+                  "  const id = Number(pm.collectionVariables.get('reservaId'));",
+                  "  pm.expect(lista.some(r => r.id === id)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modificar reserva a 1 hora (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/{{reservaId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaReservaISO}}\",\n  \"horas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('horas 1', () => pm.expect(json.horas).to.eql(1));",
+                  "pm.test('recalcula el precio', () => {",
+                  "  pm.expect(Number(json.precioTotal)).to.eql(Number(pm.collectionVariables.get('precioHora')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reserva superpuesta (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaReservaISO}}\",\n  \"horas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('explica la superposición', () => pm.expect(pm.response.json().detail).to.include('superpone'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Más de 3 horas (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaReservaISO}}\",\n  \"horas\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "const json = pm.response.json();",
+                  "pm.test('title \"Datos inválidos\"', () => pm.expect(json.title).to.eql('Datos inválidos'));",
+                  "pm.test('informa el campo horas', () => pm.expect(json.errores).to.have.property('horas'));",
+                  "pm.test('menciona el máximo de 3 horas', () => pm.expect(json.errores.horas).to.include('3 horas'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Inicio en el pasado (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"2020-01-01T10:00:00\",\n  \"horas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('informa el campo inicio', () => pm.expect(pm.response.json().errores).to.have.property('inicio'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reserva sin cancha (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaReservaISO}}\",\n  \"horas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('informa el campo canchaId', () => pm.expect(pm.response.json().errores).to.have.property('canchaId'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transición PENDIENTE -> FINALIZADA (409)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/{{reservaId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"FINALIZADA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('explica la transición inválida', () => {",
+                  "  pm.expect(pm.response.json().detail).to.include('PENDIENTE a FINALIZADA');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH sin estado (400)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/{{reservaId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('informa el campo estado', () => pm.expect(pm.response.json().errores).to.have.property('estado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirmar reserva (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/{{reservaId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"CONFIRMADA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('estado CONFIRMADA', () => pm.expect(pm.response.json().estado).to.eql('CONFIRMADA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Finalizar reserva (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/{{reservaId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"FINALIZADA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('estado FINALIZADA', () => pm.expect(pm.response.json().estado).to.eql('FINALIZADA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar una FINALIZADA (409)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/{{reservaId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"CANCELADA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('explica la transición inválida', () => pm.expect(pm.response.json().detail).to.include('FINALIZADA a CANCELADA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservas de la cancha por fecha (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}/reservas?fecha={{fechaReservaDia}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "const r = lista.find(x => x.id === Number(pm.collectionVariables.get('reservaId')));",
+                  "pm.test('incluye la reserva FINALIZADA', () => {",
+                  "  pm.expect(r).to.be.an('object');",
+                  "  pm.expect(r.estado).to.eql('FINALIZADA');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservas del cliente (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}/reservas"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "pm.test('incluye la reserva del circuito', () => {",
+                  "  const id = Number(pm.collectionVariables.get('reservaId'));",
+                  "  pm.expect(lista.some(r => r.id === id)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disponibilidad con horario ocupado (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}/disponibilidad?fecha={{fechaReservaDia}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const libres = pm.response.json();",
+                  "pm.test('devuelve franjas horarias', () => pm.expect(libres).to.be.an('array'));",
+                  "pm.test('10:00 ocupado', () => pm.expect(libres).to.not.include('10:00'));",
+                  "pm.test('09:00 y 11:00 libres', () => {",
+                  "  pm.expect(libres).to.include('09:00');",
+                  "  pm.expect(libres).to.include('11:00');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recaudación del mes (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/recaudacion?mes={{mesReserva}}",
+            "description": "Solo cuenta reservas FINALIZADAS del mes de la reserva."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const filas = pm.response.json();",
+                  "const canchaId = Number(pm.collectionVariables.get('canchaId'));",
+                  "const fila = filas.find(f => f.canchaId === canchaId);",
+                  "pm.test('incluye la cancha', () => pm.expect(fila).to.be.an('object'));",
+                  "pm.test('total = 1 hora finalizada', () => {",
+                  "  pm.expect(Number(fila.total)).to.eql(Number(pm.collectionVariables.get('precioHora')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recaudación de un mes sin reservas (200 vacío)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/recaudacion?mes=1999-01"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('arreglo vacío', () => pm.expect(pm.response.json()).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recaudación con mes inválido (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/recaudacion?mes=2026-13"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('pide formato AAAA-MM', () => pm.expect(pm.response.json().detail).to.include('AAAA-MM'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disponibilidad con fecha inválida (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}/disponibilidad?fecha=2026-99-99"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Parámetro inválido', () => pm.response.to.have.status(400));",
+                  "pm.test('responde problem+json con title \"Parámetro inválido\"', () => {",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql(400);",
+                  "  pm.expect(json.title).to.eql('Parámetro inválido');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Cancelación y liberación de horario",
+      "item": [
+        {
+          "name": "Crear segunda reserva a las 12:00 (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaCancelarISO}}\",\n  \"horas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(",
+                  "  'fechaCancelarISO',",
+                  "  pm.collectionVariables.get('fechaReservaISO').replace('T10:00:00', 'T12:00:00')",
+                  ");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('reservaCanceladaId', json.id);",
+                  "pm.test('estado PENDIENTE', () => pm.expect(json.estado).to.eql('PENDIENTE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disponibilidad con 12:00 ocupado (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}/disponibilidad?fecha={{fechaReservaDia}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('12:00 ocupado', () => pm.expect(pm.response.json()).to.not.include('12:00'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar con más de 24 h de anticipación (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/{{reservaCanceladaId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"CANCELADA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('estado CANCELADA', () => pm.expect(json.estado).to.eql('CANCELADA'));",
+                  "pm.test('sin recargo por anticipación', () => pm.expect(Number(json.recargo)).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disponibilidad libera el 12:00 (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}/disponibilidad?fecha={{fechaReservaDia}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('12:00 libre otra vez', () => pm.expect(pm.response.json()).to.include('12:00'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "La cancelada sigue listada (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}/reservas?fecha={{fechaReservaDia}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json().find(x => x.id === Number(pm.collectionVariables.get('reservaCanceladaId')));",
+                  "pm.test('aparece con estado CANCELADA', () => {",
+                  "  pm.expect(r).to.be.an('object');",
+                  "  pm.expect(r.estado).to.eql('CANCELADA');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar reserva cancelada (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/{{reservaCanceladaId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));",
+                  "pm.test('sin cuerpo', () => pm.expect(pm.response.text()).to.eql(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar la misma reserva otra vez (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/{{reservaCanceladaId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('detalle con el id', () => pm.expect(pm.response.json().detail).to.include(String(pm.collectionVariables.get('reservaCanceladaId'))));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Extras (fijas, tarifa nocturna, recargo)",
+      "item": [
+        {
+          "name": "Turno fijo: 4 semanas seguidas (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/fijas",
+            "description": "Hoy + 14 días a las 18:00, repetido 4 semanas. Guarda fijaId1..fijaId4.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaFijaISO}}\",\n  \"horas\": 2,\n  \"semanas\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const creadas = pm.response.json();",
+                  "pm.test('crea 4 reservas', () => pm.expect(creadas).to.have.lengthOf(4));",
+                  "creadas.forEach((r, i) => pm.collectionVariables.set('fijaId' + (i + 1), r.id));",
+                  "pm.test('todas PENDIENTE', () => creadas.forEach(r => pm.expect(r.estado).to.eql('PENDIENTE')));",
+                  "pm.test('precio de 2 horas cada una', () => {",
+                  "  const precio = Number(pm.collectionVariables.get('precioHora'));",
+                  "  creadas.forEach(r => pm.expect(Number(r.precioTotal)).to.eql(precio * 2));",
+                  "});",
+                  "pm.test('una por semana', () => {",
+                  "  for (let i = 1; i < creadas.length; i++) {",
+                  "    const anterior = new Date(creadas[i - 1].inicio);",
+                  "    const actual = new Date(creadas[i].inicio);",
+                  "    pm.expect(actual - anterior).to.eql(7 * 24 * 60 * 60 * 1000);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disponibilidad del día fijo (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}/disponibilidad?fecha={{fechaFijaDia}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const libres = pm.response.json();",
+                  "pm.test('18:00 y 19:00 ocupados', () => {",
+                  "  pm.expect(libres).to.not.include('18:00');",
+                  "  pm.expect(libres).to.not.include('19:00');",
+                  "});",
+                  "pm.test('20:00 libre', () => pm.expect(libres).to.include('20:00'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tarifa nocturna: 20:00 con +20% (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaNocturnaISO}}\",\n  \"horas\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(",
+                  "  'fechaNocturnaISO',",
+                  "  pm.collectionVariables.get('fechaReservaISO').replace('T10:00:00', 'T20:00:00')",
+                  ");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('reservaNocturnaId', json.id);",
+                  "pm.test('precio con tarifa nocturna (+20%)', () => {",
+                  "  const esperado = Number(pm.collectionVariables.get('precioHora')) * 1.2 * 2;",
+                  "  pm.expect(Number(json.precioTotal)).to.be.closeTo(esperado, 0.01);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear reserva para cancelar en menos de 24 h (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "description": "Reserva que empieza dentro de las próximas 3 horas.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaCercanaISO}}\",\n  \"horas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('reservaTardiaId', json.id);",
+                  "pm.collectionVariables.set('precioTardia', json.precioTotal);",
+                  "pm.test('estado PENDIENTE y sin recargo', () => {",
+                  "  pm.expect(json.estado).to.eql('PENDIENTE');",
+                  "  pm.expect(Number(json.recargo)).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelación tardía: recargo del 50% (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/{{reservaTardiaId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"CANCELADA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('estado CANCELADA', () => pm.expect(json.estado).to.eql('CANCELADA'));",
+                  "pm.test('recargo = 50% del precio total', () => {",
+                  "  const esperado = Number(pm.collectionVariables.get('precioTardia')) * 0.5;",
+                  "  pm.expect(Number(json.recargo)).to.be.closeTo(esperado, 0.01);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar cancha con reservas (409)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('explica el motivo', () => pm.expect(pm.response.json().detail).to.include('reservas asociadas'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar cliente con reservas (409)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('explica el motivo', () => pm.expect(pm.response.json().detail).to.include('reservas asociadas'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - Errores y excepciones",
+      "item": [
+        {
+          "name": "Reserva inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('detalle con el id', () => pm.expect(pm.response.json().detail).to.include('No existe la reserva 999999'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modificar reserva inexistente (404)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/999999",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaReservaISO}}\",\n  \"horas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('detalle con el id', () => pm.expect(pm.response.json().detail).to.include('No existe la reserva 999999'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cambiar estado de reserva inexistente (404)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/999999/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"CANCELADA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('detalle con el id', () => pm.expect(pm.response.json().detail).to.include('No existe la reserva 999999'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar reserva inexistente (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reserva con cancha inexistente (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": 999999,\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaReservaISO}}\",\n  \"horas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('detalle con la cancha', () => pm.expect(pm.response.json().detail).to.include('No existe la cancha 999999'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reserva con cliente inexistente (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": 999999,\n  \"inicio\": \"{{fechaReservaISO}}\",\n  \"horas\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('detalle con el cliente', () => pm.expect(pm.response.json().detail).to.include('No existe el cliente 999999'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Turno fijo con 0 semanas (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/fijas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaFijaISO}}\",\n  \"horas\": 1,\n  \"semanas\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('informa el campo semanas', () => pm.expect(pm.response.json().errores).to.have.property('semanas'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Turno fijo superpuesto (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/fijas",
+            "description": "Choca con la reserva FINALIZADA de las 10:00: no debe crear ninguna de las dos.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaReservaISO}}\",\n  \"horas\": 2,\n  \"semanas\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('explica la superposición', () => pm.expect(pm.response.json().detail).to.include('superpone'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modificar cancha inexistente (404)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/canchas/999999",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Fantasma\",\n  \"deporte\": \"Tenis\",\n  \"precioHora\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('detalle con el id', () => pm.expect(pm.response.json().detail).to.include('No existe la cancha 999999'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar cancha inexistente (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modificar cliente inexistente (404)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes/999999",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Fantasma\",\n  \"telefono\": \"3825123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('detalle con el id', () => pm.expect(pm.response.json().detail).to.include('No existe el cliente 999999'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar cliente inexistente (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservas de cancha inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/999999/reservas"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservas de cliente inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/999999/reservas"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disponibilidad de cancha inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/999999/disponibilidad"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Estado con valor inválido (400)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas/{{reservaId}}/estado",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"VOLANDO\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('rechaza el enum desconocido', () => pm.expect(pm.response.json().title).to.eql('JSON mal formado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Content-Type no soportado (415)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{baseUrl}}/api/canchas",
+            "description": "Sin Content-Type application/json el cuerpo no se puede leer.",
+            "body": {
+              "mode": "raw",
+              "raw": "hola"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('415 Tipo de contenido no soportado', () => pm.response.to.have.status(415));",
+                  "pm.test('responde problem+json con title \"Tipo de contenido no soportado\"', () => {",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql(415);",
+                  "  pm.expect(json.title).to.eql('Tipo de contenido no soportado');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Petición sin cuerpo (400)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas",
+            "description": "Sin body no hay JSON que deserializar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 JSON mal formado', () => pm.response.to.have.status(400));",
+                  "pm.test('responde problem+json con title \"JSON mal formado\"', () => {",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql(400);",
+                  "  pm.expect(json.title).to.eql('JSON mal formado');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cliente con nombre vacío (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\",\n  \"telefono\": \"3825123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('informa el campo nombre', () => pm.expect(pm.response.json().errores).to.have.property('nombre'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reserva con 0 horas (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reservas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canchaId\": \"{{canchaId}}\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"inicio\": \"{{fechaFijaISO}}\",\n  \"horas\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('informa el campo horas', () => pm.expect(pm.response.json().errores).to.have.property('horas'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recaudación con formato de mes inválido (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/recaudacion?mes=2026-1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('pide formato AAAA-MM', () => pm.expect(pm.response.json().detail).to.include('AAAA-MM'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 - Limpieza de la corrida",
+      "item": [
+        {
+          "name": "Borrar reserva principal",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/{{reservaId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar reserva nocturna",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/{{reservaNocturnaId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar reserva tardía",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/{{reservaTardiaId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar turno fijo 1",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/{{fijaId1}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar turno fijo 2",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/{{fijaId2}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar turno fijo 3",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/{{fijaId3}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar turno fijo 4",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reservas/{{fijaId4}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar la cancha de la corrida (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar el cliente de la corrida (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/clientes/{{clienteId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "La cancha ya no existe (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/canchas/{{canchaId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const pad = (n) => String(n).padStart(2, '0');",
+          "const soloFecha = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());",
+          "const iso = (d) => soloFecha(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':00';",
+          "",
+          "const ahora = new Date();",
+          "const reserva = new Date(ahora);",
+          "reserva.setDate(reserva.getDate() + 7);",
+          "reserva.setHours(10, 0, 0, 0);",
+          "",
+          "const fija = new Date(ahora);",
+          "fija.setDate(fija.getDate() + 14);",
+          "fija.setHours(18, 0, 0, 0);",
+          "",
+          "const cercana = new Date(ahora.getTime() + 3 * 60 * 60 * 1000);",
+          "cercana.setSeconds(0, 0);",
+          "",
+          "pm.collectionVariables.set('fechaReservaISO', iso(reserva));",
+          "pm.collectionVariables.set('fechaReservaDia', soloFecha(reserva));",
+          "pm.collectionVariables.set('mesReserva', soloFecha(reserva).slice(0, 7));",
+          "pm.collectionVariables.set('fechaFijaISO', iso(fija));",
+          "pm.collectionVariables.set('fechaFijaDia', soloFecha(fija));",
+          "pm.collectionVariables.set('fechaCercanaISO', iso(cercana));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "precioHora",
+      "value": "35000"
+    },
+    {
+      "key": "serie",
+      "value": ""
+    },
+    {
+      "key": "nombreCancha",
+      "value": ""
+    },
+    {
+      "key": "canchaId",
+      "value": ""
+    },
+    {
+      "key": "clienteId",
+      "value": ""
+    },
+    {
+      "key": "reservaId",
+      "value": ""
+    },
+    {
+      "key": "reservaCanceladaId",
+      "value": ""
+    },
+    {
+      "key": "reservaNocturnaId",
+      "value": ""
+    },
+    {
+      "key": "reservaTardiaId",
+      "value": ""
+    },
+    {
+      "key": "precioTardia",
+      "value": ""
+    },
+    {
+      "key": "fijaId1",
+      "value": ""
+    },
+    {
+      "key": "fijaId2",
+      "value": ""
+    },
+    {
+      "key": "fijaId3",
+      "value": ""
+    },
+    {
+      "key": "fijaId4",
+      "value": ""
+    },
+    {
+      "key": "fechaReservaISO",
+      "value": ""
+    },
+    {
+      "key": "fechaReservaDia",
+      "value": ""
+    },
+    {
+      "key": "mesReserva",
+      "value": ""
+    },
+    {
+      "key": "fechaFijaISO",
+      "value": ""
+    },
+    {
+      "key": "fechaFijaDia",
+      "value": ""
+    },
+    {
+      "key": "fechaCercanaISO",
+      "value": ""
+    }
+  ]
+}
