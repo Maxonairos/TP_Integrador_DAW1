@@ -44,6 +44,195 @@ Estados de la reserva: `PENDIENTE → CONFIRMADA → FINALIZADA`.
 `PENDIENTE` y `CONFIRMADA` también pueden pasar a `CANCELADA`. `FINALIZADA` y `CANCELADA` son
 finales.
 
+## Diagramas
+
+Los diagramas siguientes se derivan de las clases y reglas implementadas en `src/main/java`.
+
+### Arquitectura de capas
+
+```mermaid
+flowchart TB
+    subgraph Cliente["Cliente"]
+        HTTP["HTTP<br/>Swagger UI<br/>pruebas.http"]
+    end
+
+    subgraph App["Aplicación Spring Boot"]
+        direction TB
+
+        subgraph Web["Capa web"]
+            CC["CanchaController<br/>/api/canchas"]
+            CLC["ClienteController<br/>/api/clientes"]
+            RC["ReservaController<br/>/api/reservas"]
+            GEH["GlobalExceptionHandler<br/>ProblemDetail (RFC 9457)"]
+        end
+
+        subgraph Negocio["Capa de servicios"]
+            CS["CanchaService"]
+            CLS["ClienteService"]
+            RS["ReservaService"]
+        end
+
+        subgraph Persistencia["Capa de persistencia"]
+            CR["CanchaRepository"]
+            CLR["ClienteRepository"]
+            RR["ReservaRepository"]
+        end
+
+        subgraph Dominio["Modelo de dominio"]
+            CE["Cancha"]
+            CLE["Cliente"]
+            RE["Reserva"]
+            ER["EstadoReserva"]
+        end
+
+        OAS["OpenApiConfig<br/>springdoc-openapi"]
+    end
+
+    DB[("H2<br/>./data/tp-integrador")]
+
+    HTTP --> CC
+    HTTP --> CLC
+    HTTP --> RC
+
+    CC --> CS
+    CLC --> CLS
+    RC --> RS
+
+    CS --> CR
+    CS --> RR
+    CLS --> CLR
+    CLS --> RR
+    RS --> RR
+    RS --> CR
+    RS --> CLR
+
+    CR --> CE
+    CLR --> CLE
+    RR --> RE
+    RE -. estado .-> ER
+
+    CR --> DB
+    CLR --> DB
+    RR --> DB
+
+    CC -. errores .-> GEH
+    CLC -. errores .-> GEH
+    RC -. errores .-> GEH
+
+    OAS -. documenta .-> CC
+    OAS -. documenta .-> CLC
+    OAS -. documenta .-> RC
+```
+
+### Modelo de datos (DER)
+
+```mermaid
+erDiagram
+    CANCHA ||--o{ RESERVA : "tiene"
+    CLIENTE ||--o{ RESERVA : "reserva"
+
+    CANCHA {
+        Long id PK
+        String nombre
+        String deporte
+        BigDecimal precioHora
+    }
+
+    CLIENTE {
+        Long id PK
+        String nombre
+        String telefono
+    }
+
+    RESERVA {
+        Long id PK
+        Long cancha_id FK
+        Long cliente_id FK
+        LocalDateTime inicio
+        Integer horas
+        BigDecimal precioTotal
+        BigDecimal recargo
+        EstadoReserva estado
+    }
+```
+
+`Reserva.estado` es un enum almacenado como texto con los valores `PENDIENTE`, `CONFIRMADA`,
+`FINALIZADA` y `CANCELADA`.
+
+### Ciclo de vida de una reserva
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDIENTE : POST /api/reservas
+    PENDIENTE --> CONFIRMADA : PATCH /api/reservas/{id}/estado
+    PENDIENTE --> CANCELADA : PATCH /api/reservas/{id}/estado
+    CONFIRMADA --> FINALIZADA : PATCH /api/reservas/{id}/estado
+    CONFIRMADA --> CANCELADA : PATCH /api/reservas/{id}/estado
+    FINALIZADA --> [*]
+    CANCELADA --> [*]
+
+    note right of CANCELADA
+        Si se cancela con menos de 24 h de anticipación,
+        se guarda un recargo del 50 % del precioTotal.
+    end note
+```
+
+Las transiciones no permitidas (saltear estados o volver atrás) se rechazan con `409 Conflict`.
+
+### Flujo de creación de una reserva
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Cliente
+    participant RC as ReservaController
+    participant RS as ReservaService
+    participant CR as CanchaRepository
+    participant CLR as ClienteRepository
+    participant RR as ReservaRepository
+    participant DB as H2
+
+    U->>RC: POST /api/reservas
+    RC->>RC: Validar DTO con @Valid
+
+    alt Datos inválidos
+        RC-->>U: 400 ProblemDetail
+    end
+
+    RC->>RS: crear(ReservaRequest)
+    RS->>CR: findById(canchaId)
+    CR->>DB: SELECT canchas
+    DB-->>CR: Cancha
+
+    alt La cancha no existe
+        RS-->>U: 404 ProblemDetail
+    end
+
+    RS->>CLR: findById(clienteId)
+    CLR->>DB: SELECT clientes
+    DB-->>CLR: Cliente
+
+    alt El cliente no existe
+        RS-->>U: 404 ProblemDetail
+    end
+
+    RS->>RR: findByCanchaIdAndEstadoNot(canchaId, CANCELADA)
+    RR->>DB: SELECT reservas activas
+    DB-->>RR: Reservas
+
+    alt El horario se superpone
+        RS-->>U: 409 ProblemDetail
+    end
+
+    RS->>RS: calcularPrecio (tarifa nocturna +20 %)
+    RS->>RR: save(reserva PENDIENTE)
+    RR->>DB: INSERT reserva
+    DB-->>RR: Reserva con id
+    RR-->>RS: Reserva
+    RS-->>RC: ReservaResponse
+    RC-->>U: 201 Created + Location
+```
+
 ## Endpoints
 
 | Método | Ruta | Descripción | Respuestas |
